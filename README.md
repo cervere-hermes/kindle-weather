@@ -31,6 +31,6 @@ Then store it in the code repo: `gh secret set ARTIFACTS_TOKEN -R cervere-hermes
 With a token on the Kindle, a single tap asks GitHub Actions to render right now and draws the result (about 1-2 minutes).
 
 1. Create a fine-grained token: Resource owner `cervere-hermes`, repository access **only `kindle-weather`**, permissions **Actions: Read and write** (nothing else). Give it an expiry you're happy to renew.
-2. Put it in `/mnt/us/weatherboard/weather.conf` on the Kindle: `GH_TOKEN="github_pat_..."`.
+2. Save it on the Kindle as `weatherboard/github-token` (a plain text file holding only the token). It is never in this repo, and updating the other files leaves it alone.
 
 The token sits in plain text on the Kindle; it can only start this workflow. If it is missing, expired or rejected, a tap simply fetches the latest published image (`log.txt` says `render request failed (HTTP 401)`).

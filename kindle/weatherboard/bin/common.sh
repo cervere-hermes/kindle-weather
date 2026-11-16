@@ -2,6 +2,8 @@
 # Shared helpers for Weatherboard.
 EXT=/mnt/us/weatherboard
 . "$EXT/weather.conf"
+# Optional GitHub token, kept in its own file so weather.conf can be replaced freely.
+GH_TOKEN=; [ -f "$EXT/github-token" ] && GH_TOKEN=$(tr -d ' \t\r\n' < "$EXT/github-token")
 LOG="$EXT/log.txt"
 IMG=/tmp/weatherboard.png
 PIDFILE=/tmp/weatherboard.pid
