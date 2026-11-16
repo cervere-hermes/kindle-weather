@@ -71,35 +71,19 @@ wait_for_input() {
   echo timeout
 }
 
-gui_running() { status lab126_gui 2>/dev/null | grep -q 'start/running'; }
-
-# Bring the normal Kindle back. If the UI hasn't come up within ~90 s, reboot:
-# a reboot always lands on the home screen, so you can never get stuck here.
+# Bring the normal Kindle back by restarting it. Restarting the UI in place
+# ("start lab126_gui") came back half-working on this firmware: a blank screen
+# after the next USB connection, Home/Back dead. A reboot always lands on a
+# healthy home screen (about a minute).
 exit_to_kindle() {
-  log "back to the normal Kindle ($1)"
+  log "back to the normal Kindle ($1): rebooting"
   stop_readers
   rm -f "$PIDFILE" "$EVLOG"
   lipc-set-prop com.lab126.powerd preventScreenSaver 0 2>/dev/null
-  lipc-set-prop com.lab126.cmd wirelessEnable 1 2>/dev/null
-  $FBINK -q -c -f -m -M "One moment..." 2>/dev/null
-  out=$(start lab126_gui 2>&1); log "start lab126_gui -> rc=$? $out"
-  if ! gui_running; then
-    out=$(/etc/init.d/framework start 2>&1); log "framework start -> rc=$? $out"
-  fi
-  i=0
-  while [ $i -lt 90 ]; do
-    if gui_running; then
-      log "UI running after ${i}s"
-      sleep 15
-      lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home 2>/dev/null
-      log "asked for the home screen: $(status lab126_gui 2>&1)"
-      exit 0
-    fi
-    sleep 1; i=$((i + 1))
-  done
-  log "UI did not come back ($(status lab126_gui 2>&1)); rebooting"
   $FBINK -q -c -f -m -M "Restarting your Kindle..." 2>/dev/null
-  sync; reboot
+  sync
+  sleep 1
+  reboot
   exit 0
 }
 

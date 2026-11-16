@@ -8,7 +8,7 @@ An e-ink weather dashboard for a jailbroken Kindle, with **Wim**, a little avata
   - copy `kindle/weatherboard/` to the Kindle root (`/mnt/us/weatherboard`): the fetch/draw scripts and `weather.conf`;
   - copy `kindle/documents/*.sh` into the Kindle's `documents` folder: they show up as books, **Weatherboard - Start** and **Weatherboard - Show once**.
   - On macOS, run `dot_clean -m` on both folders afterwards, or the `._*.sh` files show up as broken books.
-  - Start takes over the screen. Tap once to refresh now; double-tap or plug in USB to get the normal Kindle back.
+  - Start takes over the screen. Tap once for a fresh forecast; double-tap or plug in USB to restart the Kindle back to its home screen (about a minute; restarting the UI in place proved unreliable).
   - Set `SCREEN=WxH` in `weather.conf` if the image does not fit (e.g. `600x800` on a basic Kindle).
 
 Local preview: `node src/render.mjs` (needs Google Chrome), `node src/render.mjs --demo` for the outfit sheet.
