@@ -4,7 +4,11 @@ An e-ink weather dashboard for a jailbroken Kindle, with **Wim**, a little avata
 
 - `src/` renders the dashboard: Open-Meteo data -> HTML + SVG -> PNG (headless Chrome), at every Kindle resolution in `config.json`.
 - `.github/workflows/render.yml` re-renders twice an hour and force-pushes the PNGs to the public repo `cervere-hermes/kindle-weather-artifacts` (this code repo stays private).
-- `kindle/extensions/weatherboard` is a KUAL extension that fetches the right PNG for the screen and draws it with FBInk.
+- `kindle/` holds the on-device part, for modern jailbreaks (SpiderCat, WinterBreak...) that run **scriptlets** (KUAL is obsolete there):
+  - copy `kindle/weatherboard/` to the Kindle root (`/mnt/us/weatherboard`): the fetch/draw scripts and `weather.conf`;
+  - copy `kindle/documents/*.sh` into the Kindle's `documents` folder: they show up as books, **Weatherboard - Start** and **Weatherboard - Show once**.
+  - On macOS, run `dot_clean -m` on both folders afterwards, or the `._*.sh` files show up as broken books.
+  - Start takes over the screen; to get the normal Kindle back, hold power and choose Restart.
 
 Local preview: `node src/render.mjs` (needs Google Chrome), `node src/render.mjs --demo` for the outfit sheet.
 

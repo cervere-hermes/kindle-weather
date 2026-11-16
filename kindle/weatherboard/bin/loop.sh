@@ -1,5 +1,5 @@
 #!/bin/sh
-. /mnt/us/extensions/weatherboard/bin/common.sh
+. /mnt/us/weatherboard/bin/common.sh
 echo $$ > "$PIDFILE"
 tail -n 200 "$LOG" > "$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG"
 log "starting (fbink=$FBINK)"

@@ -1,12 +1,12 @@
 #!/bin/sh
 # Shared helpers for Weatherboard.
-EXT=/mnt/us/extensions/weatherboard
+EXT=/mnt/us/weatherboard
 . "$EXT/weather.conf"
 LOG="$EXT/log.txt"
 IMG=/tmp/weatherboard.png
 PIDFILE=/tmp/weatherboard.pid
 
-for f in /mnt/us/libkh/bin/fbink /mnt/us/extensions/MRInstaller/bin/K5/fbink /mnt/us/extensions/MRInstaller/bin/PW2/fbink /usr/bin/fbink; do
+for f in /mnt/us/libkh/bin/fbink /usr/bin/fbink /mnt/us/usbnet/bin/fbink; do
   [ -x "$f" ] && FBINK="$f" && break
 done
 
