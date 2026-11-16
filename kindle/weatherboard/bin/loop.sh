@@ -9,7 +9,8 @@ echo $$ > "$PIDFILE"
 tail -n 300 "$LOG" > "$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG"
 log "starting (fbink=$FBINK)"
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 2>/dev/null
-stop lab126_gui 2>/dev/null || /etc/init.d/framework stop 2>/dev/null
+out=$(stop lab126_gui 2>&1); rc=$?; log "stop lab126_gui -> rc=$rc $out"
+if [ $rc -ne 0 ]; then out=$(/etc/init.d/framework stop 2>&1); log "framework stop -> rc=$? $out"; fi
 sleep 3
 
 EVLOG=/tmp/weatherboard.events
@@ -70,13 +71,35 @@ wait_for_input() {
   echo timeout
 }
 
+gui_running() { status lab126_gui 2>/dev/null | grep -q 'start/running'; }
+
+# Bring the normal Kindle back. If the UI hasn't come up within ~90 s, reboot:
+# a reboot always lands on the home screen, so you can never get stuck here.
 exit_to_kindle() {
   log "back to the normal Kindle ($1)"
   stop_readers
   rm -f "$PIDFILE" "$EVLOG"
   lipc-set-prop com.lab126.powerd preventScreenSaver 0 2>/dev/null
   lipc-set-prop com.lab126.cmd wirelessEnable 1 2>/dev/null
-  start lab126_gui 2>/dev/null || /etc/init.d/framework start 2>/dev/null
+  $FBINK -q -c -f -m -M "One moment..." 2>/dev/null
+  out=$(start lab126_gui 2>&1); log "start lab126_gui -> rc=$? $out"
+  if ! gui_running; then
+    out=$(/etc/init.d/framework start 2>&1); log "framework start -> rc=$? $out"
+  fi
+  i=0
+  while [ $i -lt 90 ]; do
+    if gui_running; then
+      log "UI running after ${i}s"
+      sleep 15
+      lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home 2>/dev/null
+      log "asked for the home screen: $(status lab126_gui 2>&1)"
+      exit 0
+    fi
+    sleep 1; i=$((i + 1))
+  done
+  log "UI did not come back ($(status lab126_gui 2>&1)); rebooting"
+  $FBINK -q -c -f -m -M "Restarting your Kindle..." 2>/dev/null
+  sync; reboot
   exit 0
 }
 
