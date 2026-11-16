@@ -1,0 +1,131 @@
+{
+  "city": "Amsterdam",
+  "dateLine": "Monday 16 November",
+  "updated": "19:45",
+  "temp": 8,
+  "feels": 5,
+  "humidity": 68,
+  "wind": 10,
+  "windDir": "W",
+  "cond": "Overcast",
+  "hi": 11,
+  "lo": 4,
+  "rainLine": "Wet right now · 25% chance",
+  "hourly": [
+    {
+      "t": "20:00",
+      "kind": "cloud",
+      "temp": 8,
+      "pop": 15
+    },
+    {
+      "t": "23:00",
+      "kind": "moon",
+      "temp": 5,
+      "pop": 1
+    },
+    {
+      "t": "02:00",
+      "kind": "cloud",
+      "temp": 3,
+      "pop": 0
+    },
+    {
+      "t": "05:00",
+      "kind": "cloud",
+      "temp": 4,
+      "pop": 21
+    },
+    {
+      "t": "08:00",
+      "kind": "rain",
+      "temp": 4,
+      "pop": 83
+    },
+    {
+      "t": "11:00",
+      "kind": "rain",
+      "temp": 5,
+      "pop": 100
+    },
+    {
+      "t": "14:00",
+      "kind": "rain",
+      "temp": 6,
+      "pop": 89
+    },
+    {
+      "t": "17:00",
+      "kind": "cloud",
+      "temp": 12,
+      "pop": 53
+    }
+  ],
+  "days": [
+    {
+      "name": "Tue",
+      "kind": "rain",
+      "hi": 12,
+      "lo": 3,
+      "pop": 100,
+      "text": "Rain"
+    },
+    {
+      "name": "Wed",
+      "kind": "rain",
+      "hi": 12,
+      "lo": 10,
+      "pop": 99,
+      "text": "Heavy rain"
+    },
+    {
+      "name": "Thu",
+      "kind": "rain",
+      "hi": 11,
+      "lo": 6,
+      "pop": 86,
+      "text": "Rain showers"
+    },
+    {
+      "name": "Fri",
+      "kind": "drizzle",
+      "hi": 9,
+      "lo": 2,
+      "pop": 25,
+      "text": "Light drizzle"
+    }
+  ],
+  "outfit": {
+    "pants": "trousers",
+    "shoes": "boots",
+    "top": "sweater",
+    "outer": "puffer",
+    "scarf": true,
+    "beanie": true,
+    "gloves": true,
+    "cap": false,
+    "shades": false,
+    "umbrella": false,
+    "hood": true,
+    "windy": true,
+    "mood": "meh",
+    "scene": "rain",
+    "items": [
+      "Puffer jacket",
+      "Knit sweater",
+      "Warm trousers",
+      "Scarf",
+      "Beanie",
+      "Gloves",
+      "Boots"
+    ],
+    "line": "Too windy for an umbrella. Hood up!"
+  },
+  "dressedFor": "Dressed for Tuesday",
+  "fitLabel": "Tomorrow's fit",
+  "fitRange": "Tuesday · feels 4° · 4–12°",
+  "sunrise": "08:03",
+  "sunset": "16:46",
+  "daylight": "8h 43m",
+  "uv": 1
+}
