@@ -59,8 +59,8 @@ export function decideOutfit(w, seed = 0) {
   const f = Math.round(w.feels);
   let lines;
   if (w.snow) lines = ['Snow day! Boots on.', 'Careful, it might be slippery.', 'Snowball weather.'];
-  else if (rainy && stormy) lines = ['Too windy for an umbrella. Hood up!', 'Wild out there. Raincoat it is.'];
-  else if (rainy) lines = w.rainFrom ? [`Umbrella from ${w.rainFrom}.`, `Rain rolls in around ${w.rainFrom}.`, `Dry until ${w.rainFrom}, then wet.`] : ['Bring the umbrella.', 'Wet one today.'];
+  else if (rainy && stormy) lines = w.rainWin ? [`Rain ${w.rainWin}. Hood up, too gusty!`] : ['Too windy for an umbrella. Hood up!', 'Wild out there. Raincoat it is.'];
+  else if (rainy) lines = w.rainWin ? [`Umbrella ${w.rainWin}.`, `Wet ${w.rainWin}. Umbrella!`, `Rain ${w.rainWin}. Take the brolly.`] : w.rainFrom ? [`Umbrella from ${w.rainFrom}.`] : ['Bring the umbrella.', 'Wet one today.'];
   else if (T >= 29) lines = ['Hydrate. Shade. Repeat.', 'Way too hot. Ice cream?', 'Hot one. Keep it light.'];
   else if (T <= 2) lines = [`Feels like ${f}°. Wrap up!`, 'Brrr. All the layers.', 'Gloves on. No excuses.'];
   else if (o.windy) lines = ['Hold on to your hat!', 'Windy out. Zip up.', 'Breezy one today.'];

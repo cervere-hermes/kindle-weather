@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { icon, iconKind, conditionText } from './icons.mjs';
 import { decideOutfit } from './outfit.mjs';
 import { avatarSVG } from './avatar.mjs';
+import { chartSVG, whenSummary, dayWhen, firstWindowShort, rainWindows } from './timeline.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const cfg = JSON.parse(readFileSync(join(ROOT, 'config.json'), 'utf8'));
@@ -61,6 +62,12 @@ function windowStats(h, idx) {
 
 function buildModel(d) {
   const h = d.hourly, c = d.current;
+  const row = (i) => ({
+    t: h.time[i], hour: +h.time[i].slice(11, 13), temp: h.temperature_2m[i], feels: h.apparent_temperature[i],
+    pop: h.precipitation_probability[i] ?? 0, mm: h.precipitation[i] ?? 0, code: h.weather_code[i],
+    gust: h.wind_gusts_10m[i] ?? 0, isDay: h.is_day[i],
+  });
+  const rowsOf = (pred) => h.time.map((t, i) => i).filter(pred).map(row);
   const nowStr = c.time; // local time string, e.g. 2026-11-16T18:45
   const today = nowStr.slice(0, 10);
   const nowHour = Number(nowStr.slice(11, 13));
@@ -71,39 +78,53 @@ function buildModel(d) {
   let idx = h.time.map((t, i) => i).filter((i) => h.time[i].startsWith(targetDay) && +h.time[i].slice(11, 13) >= from && +h.time[i].slice(11, 13) <= to);
   if (!idx.length) idx = [iNow];
   const w = windowStats(h, idx);
+  w.rainWin = firstWindowShort(idx.map(row));
   const seed = Number(targetDay.replaceAll('-', '')) + (w.rainFrom ? 1 : 0);
   const outfit = decideOutfit(w, seed);
 
-  const hourly = [];
-  for (let k = 1; hourly.length < 8 && iNow + k < h.time.length; k += 3) {
-    const i = iNow + k;
-    hourly.push({ t: hhmm(h.time[i]), kind: iconKind(h.weather_code[i], h.is_day[i]), temp: r(h.temperature_2m[i]), pop: h.precipitation_probability[i] ?? 0 });
-  }
+  // Timeline: from now to the end of tomorrow (evening) or the next 24 h (daytime).
+  const dayName = (t) => DAYS[dateOf(t).getUTCDay()];
+  const tomorrow = d.daily.time[1];
+  let endIdx = evening ? h.time.lastIndexOf(h.time.filter((t) => t.startsWith(tomorrow)).pop()) : iNow + 24;
+  endIdx = Math.min(endIdx, h.time.length - 1);
+  const tl = [];
+  for (let i = iNow; i <= endIdx; i++) tl.push(row(i));
+  const splitAt = evening ? `${tomorrow}T06` : `${tomorrow}T00`;
+  const segA = tl.filter((r) => r.t < splitAt), segB = tl.filter((r) => r.t >= splitAt);
+  const when = [
+    { label: evening ? 'Tonight' : 'Today', items: whenSummary(segA, { night: evening, max: 4 }) },
+    { label: evening ? dayName(tomorrow) : 'Overnight', items: whenSummary(segB, { night: !evening, max: 4 }) },
+  ].filter((x) => x.items.length);
+  const chart = chartSVG(tl, (r) => dayName(r.t).slice(0, 3));
+
   const days = d.daily.time.slice(1, 5).map((t, j) => {
     const k = j + 1, D = d.daily;
-    return { name: DAYS[dateOf(t).getUTCDay()].slice(0, 3), kind: iconKind(D.weather_code[k], 1), hi: r(D.temperature_2m_max[k]), lo: r(D.temperature_2m_min[k]), pop: D.precipitation_probability_max[k] ?? 0, text: conditionText(D.weather_code[k]) };
+    const rows = rowsOf((i) => h.time[i].startsWith(t) && +h.time[i].slice(11, 13) >= 6);
+    return { name: dayName(t).slice(0, 3), kind: iconKind(D.weather_code[k], 1), hi: r(D.temperature_2m_max[k]), lo: r(D.temperature_2m_min[k]), pop: D.precipitation_probability_max[k] ?? 0, when: rows.length ? dayWhen(rows) : `${D.precipitation_probability_max[k] ?? 0}% rain` };
   });
 
   // today's rain outlook (from now until midnight)
-  const restOfDay = h.time.map((t, i) => i).filter((i) => i >= iNow && h.time[i].startsWith(today));
-  const wetIdx = restOfDay.find((i) => (h.precipitation_probability[i] ?? 0) >= 50 || h.precipitation[i] >= 0.3);
-  const rainLine = wetIdx === undefined ? 'Dry for the rest of today'
-    : wetIdx === iNow ? `Wet right now · ${h.precipitation_probability[wetIdx]}% chance`
-    : `Rain likely from ${hhmm(h.time[wetIdx])} · ${h.precipitation_probability[wetIdx]}%`;
+  const restRows = rowsOf((i) => i >= iNow && h.time[i].startsWith(today));
+  const restWins = rainWindows(restRows);
+  const hhr = (x) => String(x.hour).padStart(2, '0');
+  const rainLine = !restWins.length ? 'Dry for the rest of today'
+    : restWins[0].s === 0 ? `${restWins[0].word} now, until ${String((restRows[restWins[0].e].hour + 1) % 24).padStart(2, '0')}:00`
+    : `${restWins[0].word} from ${hhr(restRows[restWins[0].s])}:00 today`;
 
   const dt = dateOf(today);
   const sr = d.daily.sunrise[0], ss = d.daily.sunset[0];
   const dayMin = (Date.parse(ss + 'Z') - Date.parse(sr + 'Z')) / 60000;
   return {
-    city: cfg.name, dateLine: `${DAYS[dt.getUTCDay()]} ${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]}`,
+    city: cfg.name, dateShort: `${DAYS[dt.getUTCDay()].slice(0, 3)} ${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()].slice(0, 3)}`, dateLine: `${DAYS[dt.getUTCDay()]} ${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]}`,
     updated: hhmm(nowStr),
     temp: r(c.temperature_2m), feels: r(c.apparent_temperature), humidity: c.relative_humidity_2m,
     wind: r(c.wind_speed_10m), windDir: COMPASS[Math.round(c.wind_direction_10m / 45) % 8],
     cond: conditionText(c.weather_code, c.is_day), hi: r(d.daily.temperature_2m_max[0]), lo: r(d.daily.temperature_2m_min[0]),
-    rainLine, hourly, days, outfit,
+    rainLine, chart, when, days, outfit,
+    chartTitle: evening ? `Now → ${dayName(tomorrow)}` : 'Next 24 hours',
     dressedFor: evening ? `Dressed for ${DAYS[dateOf(targetDay).getUTCDay()]}` : 'Dressed for today',
-    fitLabel: evening ? `Tomorrow's fit` : `Today's fit`,
-    fitRange: `${evening ? DAYS[dateOf(targetDay).getUTCDay()] : 'Today'} · feels ${r(w.feels)}° · ${r(w.tmin)}–${r(w.tmax)}°`,
+    fitLabel: evening ? `${dayName(tomorrow)}'s fit` : `Today's fit`,
+    fitRange: `07–21 · feels ${r(w.feels)}° · ${r(w.tmin)}–${r(w.tmax)}°`,
     sunrise: hhmm(sr), sunset: hhmm(ss), daylight: `${Math.floor(dayMin / 60)}h ${String(r(dayMin % 60)).padStart(2, '0')}m`,
     uv: r(d.daily.uv_index_max[0] ?? 0),
   };
@@ -112,41 +133,45 @@ function buildModel(d) {
 const CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100vw;height:100vh;background:#fff;color:#000;overflow:hidden;-webkit-font-smoothing:antialiased}
-body{font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;padding:3.4vw 4.6vw 2.6vw}
+body{font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;padding:3vw 4.6vw 2.2vw}
 .cap{font-size:2.55vw;letter-spacing:.32em;text-transform:uppercase;font-weight:700}
 header{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:2vw;border-bottom:.5vw solid #000}
-header .sub{font-size:2.9vw;font-weight:500}
-.hero{display:grid;grid-template-columns:42% 58%;height:52vw;border-bottom:.25vw solid #000}
+header .sub{font-size:2.7vw;font-weight:500}
+.hero{display:grid;grid-template-columns:42% 58%;height:47vw;border-bottom:.25vw solid #000}
 .now{padding-top:3vw;display:flex;flex-direction:column}
-.big{font-family:'DM Serif Display',serif;font-size:23vw;line-height:.9;letter-spacing:-.04em;margin-left:-1vw}
+.big{font-family:'DM Serif Display',serif;font-size:20vw;line-height:.9;letter-spacing:-.04em;margin-left:-1vw}
 .big sup{font-size:.45em;vertical-align:.95em;margin-left:.2vw}
 .cond{font-size:4.8vw;font-weight:700;margin:1vw 0 1vw;line-height:1.05}
 .meta{font-size:2.8vw;line-height:1.5;color:#222}
 .meta b{font-weight:700}
 .rain{margin-top:auto;margin-bottom:2vw;font-size:2.7vw;font-weight:700;border:.35vw solid #000;border-radius:1.2vw;padding:1.1vw 1.6vw;align-self:flex-start}
 .wim{position:relative;overflow:hidden}
-.wim svg{position:absolute;right:-2vw;bottom:-.2vw;height:51vw;width:auto}
+.wim svg{position:absolute;right:-2vw;bottom:-.2vw;height:46vw;width:auto}
 .wim .tag{position:absolute;right:0;top:2.2vw;font-size:2.1vw;letter-spacing:.2em;text-transform:uppercase;font-weight:700;background:#fff;padding:.4vw .8vw;z-index:2}
-.bubble{position:absolute;left:0;top:7vw;max-width:21vw;background:#fff;border:.4vw solid #000;border-radius:2.4vw;padding:1.2vw 1.6vw;font-size:2.7vw;font-weight:700;line-height:1.2;z-index:2}
+.bubble{position:absolute;left:0;top:6vw;max-width:21vw;background:#fff;border:.4vw solid #000;border-radius:2.4vw;padding:1.2vw 1.6vw;font-size:2.7vw;font-weight:700;line-height:1.2;z-index:2}
 .bubble:after{content:'';position:absolute;right:-2.6vw;bottom:1.8vw;width:2.6vw;height:2.6vw;background:#fff;border-right:.4vw solid #000;border-bottom:.4vw solid #000;transform:skewX(35deg) rotate(-30deg)}
-.fit{padding:2.2vw 0 2.2vw;border-bottom:.25vw solid #000}
-.fit .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.6vw}
+.fit{padding:1.8vw 0 1.8vw;border-bottom:.25vw solid #000}
+.fit .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1.2vw}
 .fit .range{font-size:2.7vw;color:#333;font-weight:500}
-.chips{display:flex;flex-wrap:wrap;gap:1.2vw}
-.chip{font-size:2.6vw;font-weight:700;padding:.6vw 1.6vw;border:.35vw solid #000;border-radius:5vw}
+.chips{display:flex;flex-wrap:wrap;gap:1vw}
+.chip{font-size:2.4vw;font-weight:700;padding:.45vw 1.4vw;border:.35vw solid #000;border-radius:5vw}
 .chip.dark{background:#000;color:#fff}
-.hours{display:grid;grid-template-columns:repeat(8,1fr);padding:2vw 0 1.8vw;border-bottom:.25vw solid #000;text-align:center}
-.hours .t{font-size:2.6vw;font-weight:500;color:#333}
-.hours svg{width:7vw;height:7vw;margin:.6vw auto .2vw;display:block}
-.hours .v{font-size:3.6vw;font-weight:700}
-.hours .p{font-size:2.4vw;color:#444;margin-top:.3vw}
-.days{display:grid;grid-template-columns:repeat(4,1fr);padding:1.6vw 0 1.4vw;flex:1;align-items:center}
+.tl{padding:1.8vw 0 1.6vw;border-bottom:.25vw solid #000}
+.tl .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1vw}
+.tl .legend{font-size:2.2vw;color:#444}.tl .legend i{display:inline-block;width:1.6vw;height:2.2vw;background:#555;margin-right:.8vw;vertical-align:-.3vw}
+.tl svg{width:100%;height:auto;display:block}
+.when{margin-top:1.2vw;font-size:2.55vw;line-height:1.45}
+.when>div{padding-left:18vw;text-indent:-18vw}
+.when .it{white-space:nowrap}
+.when .lbl{display:inline-block;width:18vw;text-indent:0;font-size:2.1vw;letter-spacing:.18em;text-transform:uppercase;font-weight:700}
+.when b{font-weight:700}
+.days{display:grid;grid-template-columns:repeat(4,1fr);padding:1.2vw 0 1vw;flex:1;align-items:center}
 .day{display:flex;flex-direction:column;align-items:center;border-right:.25vw solid #bbb}
 .day:last-child{border-right:none}
 .day .n{font-size:2.7vw}
-.day svg{width:8vw;height:8vw;margin:.2vw 0}
+.day svg{width:6.5vw;height:6.5vw;margin:0}
 .day .hl{font-size:3.6vw;font-weight:700}.day .hl span{font-weight:400;color:#555}
-.day .p{font-size:2.4vw;color:#444;margin-top:.3vw}
+.day .p{font-size:2.3vw;color:#222;font-weight:500;margin-top:.2vw}
 footer{display:flex;gap:3.2vw;font-size:2.6vw;color:#222;padding-top:1.6vw;border-top:.25vw solid #000;padding-right:16vw}
 footer b{font-weight:700}
 `;
@@ -156,7 +181,7 @@ function html(m) {
   return `<!doctype html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=DM+Serif+Display&display=block" rel="stylesheet">
 <style>${CSS}</style></head><body>
-<header><span class="cap">${m.city}</span><span class="sub">${m.dateLine} · updated ${m.updated}</span></header>
+<header><span class="cap">${m.city}</span><span class="sub">${m.dateShort} · sun ${m.sunrise}–${m.sunset} · updated ${m.updated}</span></header>
 <section class="hero">
   <div class="now">
     <div class="big">${m.temp}<sup>°</sup></div>
@@ -167,9 +192,9 @@ function html(m) {
   <div class="wim"><div class="tag">${m.dressedFor}</div><div class="bubble">${m.outfit.line}</div>${avatarSVG(m.outfit)}</div>
 </section>
 <section class="fit"><div class="row"><span class="cap">${m.fitLabel}</span><span class="range">${m.fitRange}</span></div><div class="chips">${chips}</div></section>
-<section class="hours">${m.hourly.map((x) => `<div><div class="t">${x.t}</div>${icon(x.kind)}<div class="v">${x.temp}°</div><div class="p">${x.pop}%</div></div>`).join('')}</section>
-<section class="days">${m.days.map((x) => `<div class="day"><div class="n cap">${x.name}</div>${icon(x.kind)}<div class="hl">${x.hi}° <span>${x.lo}°</span></div><div class="p">${x.pop}% rain</div></div>`).join('')}</section>
-<footer><span>Sunrise <b>${m.sunrise}</b></span><span>Sunset <b>${m.sunset}</b></span><span>Daylight <b>${m.daylight}</b></span><span>UV <b>${m.uv}</b></span></footer>
+<section class="tl"><div class="row"><span class="cap">${m.chartTitle}</span><span class="legend"><i></i>chance of rain · darker = wetter</span></div>${m.chart}
+<div class="when">${m.when.map((g) => `<div><span class="lbl">${g.label}</span>${g.items.map((it) => `<span class="it"><b>${it.b}</b> ${it.t}</span>`).join(' · ')}</div>`).join('')}</div></section>
+<section class="days">${m.days.map((x) => `<div class="day"><div class="n cap">${x.name}</div>${icon(x.kind)}<div class="hl">${x.hi}° <span>${x.lo}°</span></div><div class="p">${x.when}</div></div>`).join('')}</section>
 </body></html>`;
 }
 
