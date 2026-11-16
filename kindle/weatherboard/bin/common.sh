@@ -54,9 +54,44 @@ wifi_up() {
 
 wifi_down() { [ "$WIFI_SAVER" = "1" ] && lipc-set-prop com.lab126.cmd wirelessEnable 0 2>/dev/null; }
 
+# GitHub API helpers (used only when GH_TOKEN is set in weather.conf)
+api() { # api <path> [extra curl args...]
+  p=$1; shift
+  curl -fsSk --max-time 40 -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$@" "https://api.github.com/repos/$p"
+}
+
+# The renderedAt stamp of the newest published render (via the API: no CDN cache).
+rendered_at() {
+  api "$ARTIFACTS_REPO/contents/model.json?ref=main" -H "Accept: application/vnd.github.raw" 2>/dev/null \
+    | grep -o '"renderedAt": *"[^"]*"' | head -1 | sed 's/.*: *"//; s/"$//'
+}
+
+# Ask GitHub Actions for a fresh render and wait (up to ~4 min) until it is published.
+trigger_render() {
+  [ -n "$GH_TOKEN" ] || return 1
+  before=$(rendered_at)
+  code=$(curl -sk --max-time 30 -o /dev/null -w '%{http_code}' -X POST \
+    -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+    -d '{"ref":"main"}' "https://api.github.com/repos/$CODE_REPO/actions/workflows/render.yml/dispatches")
+  if [ "$code" != "204" ]; then log "render request failed (HTTP $code) - check GH_TOKEN"; return 1; fi
+  log "render requested (last render $before)"
+  i=0
+  while [ $i -lt 24 ]; do
+    sleep 10; i=$((i + 1))
+    now=$(rendered_at)
+    if [ -n "$now" ] && [ "$now" != "$before" ]; then log "fresh render $now after $((i * 10))s"; return 0; fi
+  done
+  log "no fresh render after 4 min, using the latest one"
+  return 1
+}
+
 fetch() {
   screen_size
   for size in "${W}x${H}" "1072x1448"; do
+    if [ -n "$GH_TOKEN" ] && api "$ARTIFACTS_REPO/contents/weather-$size.png?ref=main" \
+         -H "Accept: application/vnd.github.raw" -o "$IMG.tmp" 2>>"$LOG"; then
+      mv "$IMG.tmp" "$IMG"; FETCHED_SIZE=$size; return 0
+    fi
     if curl -fsSL -k --max-time 40 -o "$IMG.tmp" "$BASE_URL/weather-$size.png?t=$(date +%s)" 2>>"$LOG" \
        || wget -q -T 40 -O "$IMG.tmp" "$BASE_URL/weather-$size.png" 2>>"$LOG"; then
       mv "$IMG.tmp" "$IMG"; FETCHED_SIZE=$size; return 0
@@ -77,13 +112,13 @@ draw() {
   fi
 }
 
-refresh() {
-  if wifi_up && fetch; then
-    draw; log "drew $FETCHED_SIZE"
-  else
-    log "fetch failed, keeping last image"
-    [ -f "$IMG" ] && draw
-    $FBINK -q -m -y -2 "Offline - showing last forecast"
+refresh() { # refresh [now]  - "now" asks GitHub for a fresh render first
+  if wifi_up; then
+    [ "$1" = "now" ] && trigger_render
+    if fetch; then draw; log "drew $FETCHED_SIZE"; wifi_down; return; fi
   fi
+  log "fetch failed, keeping last image"
+  [ -f "$IMG" ] && draw
+  $FBINK -q -m -y -2 "Offline - showing last forecast"
   wifi_down
 }

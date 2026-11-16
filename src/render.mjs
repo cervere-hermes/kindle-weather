@@ -207,5 +207,5 @@ else {
   const data = process.argv.includes('--fixture') ? JSON.parse(readFileSync(process.argv[process.argv.indexOf('--fixture') + 1], 'utf8')) : await fetchWeather();
   const model = buildModel(data);
   for (const [w, h] of cfg.sizes) console.log(shoot(html(model), `weather-${w}x${h}`, w, h));
-  writeFileSync(join(DIST, 'model.json'), JSON.stringify(model, null, 2));
+  writeFileSync(join(DIST, 'model.json'), JSON.stringify({ renderedAt: new Date().toISOString(), ...model }, null, 2));
 }

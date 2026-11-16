@@ -82,12 +82,14 @@ exit_to_kindle() {
 
 log "usb at start: $(cat /sys/class/udc/*/state 2>/dev/null | tr '\n' ' ')"
 sleep 1   # ignore the tap that launched us
+mode=
 while true; do
-  refresh
+  refresh $mode
+  mode=
   sleep 1
   case "$(wait_for_input $((REFRESH_MIN * 60)))" in
     exit-tap) exit_to_kindle "double tap" ;;
     exit-usb) exit_to_kindle "usb connected" ;;
-    refresh)  log "refresh on tap"; $FBINK -q -m -y -1 "Updating..." 2>/dev/null ;;
+    refresh)  log "refresh on tap"; mode=now; $FBINK -q -m -y -1 "Updating..." 2>/dev/null ;;
   esac
 done
