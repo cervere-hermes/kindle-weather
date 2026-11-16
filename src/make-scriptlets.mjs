@@ -20,7 +20,7 @@ const books = [
     file: 'weatherboard-start.sh', name: 'Start Weatherboard', label: 'START', sub: 'dashboard',
     outfit: decideOutfit({ ...base, feels: 7, rainProb: 80, rainMm: 2, rainFrom: '14:00' }, 0),
     body: `# Takes over the screen and refreshes the forecast every 30 minutes.
-# Tap once: fresh forecast now. Double-tap or plug in USB: the Kindle restarts to its home screen (~1 min).
+# Tap once: fresh forecast. Double-tap: straight back to the home screen.
 /bin/sh /mnt/us/weatherboard/bin/start.sh`,
   },
   {

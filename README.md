@@ -8,7 +8,7 @@ An e-ink weather dashboard for a jailbroken Kindle, with **Wim**, a little avata
   - copy `kindle/weatherboard/` to the Kindle root (`/mnt/us/weatherboard`): the fetch/draw scripts and `weather.conf`;
   - copy `kindle/documents/*.sh` into the Kindle's `documents` folder: they show up as books, **Weatherboard - Start** and **Weatherboard - Show once**.
   - On macOS, run `dot_clean -m` on both folders afterwards, or the `._*.sh` files show up as broken books.
-  - Start takes over the screen. Tap once for a fresh forecast; double-tap or plug in USB to restart the Kindle back to its home screen (about a minute; restarting the UI in place proved unreliable).
+  - Start draws over the Kindle home screen and holds the touchscreen (via `bin/evgrab`), so taps reach the dashboard. Tap once for a fresh forecast; double-tap to go straight back to home. Plugging in USB hands over to the Kindle's USB screen.
   - Set `SCREEN=WxH` in `weather.conf` if the image does not fit (e.g. `600x800` on a basic Kindle).
 
 Local preview: `node src/render.mjs` (needs Google Chrome), `node src/render.mjs --demo` for the outfit sheet.
@@ -34,3 +34,14 @@ With a token on the Kindle, a single tap asks GitHub Actions to render right now
 2. Save it on the Kindle as `weatherboard/github-token` (a plain text file holding only the token). It is never in this repo, and updating the other files leaves it alone.
 
 The token sits in plain text on the Kindle; it can only start this workflow. If it is missing, expired or rejected, a tap simply fetches the latest published image (`log.txt` says `render request failed (HTTP 401)`).
+
+## evgrab (touch helper)
+
+`kindle/evgrab/evgrab.c` is a ~2 KB freestanding program for 32-bit ARM Linux. It grabs the touchscreen
+exclusively (EVIOCGRAB) and prints `T <time>` per finger press, sleeping in `poll()` otherwise.
+Killing it, or the dashboard script dying, gives the touchscreen back. Rebuild on macOS without extra tools:
+
+```
+clang --target=armv7a-linux-gnueabihf -marm -mfloat-abi=soft -Os -ffreestanding -fno-stack-protector -fno-builtin -nostdlib -c kindle/evgrab/evgrab.c -o /tmp/evgrab.o
+~/.rustup/toolchains/*/lib/rustlib/*/bin/rust-lld -flavor gnu -static -e _start -o kindle/weatherboard/bin/evgrab /tmp/evgrab.o
+```

@@ -115,12 +115,16 @@ draw() {
 }
 
 refresh() { # refresh [now]  - "now" asks GitHub for a fresh render first
+  # Wi-Fi goes off *before* drawing, so the Kindle's status-bar update can't land on top.
   if wifi_up; then
     [ "$1" = "now" ] && trigger_render
-    if fetch; then draw; log "drew $FETCHED_SIZE"; wifi_down; return; fi
+    if fetch; then
+      wifi_down; [ "$WIFI_SAVER" = "1" ] && sleep 2
+      draw; log "drew $FETCHED_SIZE"; return
+    fi
   fi
+  wifi_down
   log "fetch failed, keeping last image"
   [ -f "$IMG" ] && draw
   $FBINK -q -m -y -2 "Offline - showing last forecast"
-  wifi_down
 }
