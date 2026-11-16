@@ -10,11 +10,13 @@ Local preview: `node src/render.mjs` (needs Google Chrome), `node src/render.mjs
 
 After 19:00 the avatar dresses for tomorrow. Change the city or that hour in `config.json`.
 
-## One-time setup: deploy key for the artifacts repo
+## One-time setup: let the workflow push to the artifacts repo
 
-The workflow pushes to `kindle-weather-artifacts` with an SSH deploy key:
+Create a fine-grained personal access token (GitHub -> Settings -> Developer settings -> Fine-grained tokens):
+- Resource owner: `cervere-hermes`
+- Repository access: only `kindle-weather-artifacts`
+- Permissions: Contents -> Read and write
 
-1. `ssh-keygen -t ed25519 -N "" -C weatherboard-artifacts -f artifacts_key`
-2. Add `artifacts_key.pub` to **kindle-weather-artifacts** -> Settings -> Deploy keys, with **Allow write access** ticked.
-3. Add the private key as secret `ARTIFACTS_DEPLOY_KEY` in **kindle-weather**: `gh secret set ARTIFACTS_DEPLOY_KEY -R cervere-hermes/kindle-weather < artifacts_key`
-4. Delete both local key files.
+Then store it in the code repo: `gh secret set ARTIFACTS_TOKEN -R cervere-hermes/kindle-weather` (paste the token when asked).
+
+(An SSH deploy key with write access in secret `ARTIFACTS_DEPLOY_KEY` also works, if deploy keys are allowed.)

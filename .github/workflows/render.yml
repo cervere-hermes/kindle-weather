@@ -10,7 +10,7 @@ permissions:
 concurrency: render
 env:
   # Public repo that only holds the rendered images; the Kindle downloads from here.
-  ARTIFACTS_REPO: git@github.com:cervere-hermes/kindle-weather-artifacts.git
+  ARTIFACTS_REPO: cervere-hermes/kindle-weather-artifacts
   ARTIFACTS_BRANCH: main
 jobs:
   render:
@@ -30,14 +30,21 @@ jobs:
           done
       - name: Publish images to the public artifacts repo
         env:
+          ARTIFACTS_TOKEN: ${{ secrets.ARTIFACTS_TOKEN }}
           DEPLOY_KEY: ${{ secrets.ARTIFACTS_DEPLOY_KEY }}
         run: |
-          if [ -z "$DEPLOY_KEY" ]; then
-            echo "::error::Missing ARTIFACTS_DEPLOY_KEY secret (write deploy key for kindle-weather-artifacts)"; exit 1
+          # Preferred: a fine-grained token with Contents read/write on kindle-weather-artifacts only.
+          # Fallback: an SSH deploy key with write access.
+          if [ -n "$ARTIFACTS_TOKEN" ]; then
+            REMOTE="https://x-access-token:${ARTIFACTS_TOKEN}@github.com/${ARTIFACTS_REPO}.git"
+          elif [ -n "$DEPLOY_KEY" ]; then
+            mkdir -p ~/.ssh && printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/artifacts_key && chmod 600 ~/.ssh/artifacts_key
+            ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+            export GIT_SSH_COMMAND="ssh -i ~/.ssh/artifacts_key -o IdentitiesOnly=yes"
+            REMOTE="git@github.com:${ARTIFACTS_REPO}.git"
+          else
+            echo "::error::Add an ARTIFACTS_TOKEN secret (fine-grained token, Contents read/write on ${ARTIFACTS_REPO})"; exit 1
           fi
-          mkdir -p ~/.ssh && printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/artifacts_key && chmod 600 ~/.ssh/artifacts_key
-          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
-          export GIT_SSH_COMMAND="ssh -i ~/.ssh/artifacts_key -o IdentitiesOnly=yes"
           mkdir out && cp dist/weather-*.png dist/model.json out/
           printf '# kindle-weather-artifacts\n\nRendered Kindle weather images, replaced every run. Nothing else lives here.\n' > out/README.md
           cd out
@@ -45,4 +52,4 @@ jobs:
           git config user.name "weatherboard-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add . && git commit -qm "render $(date -u +%FT%TZ)"
-          git push -qf "$ARTIFACTS_REPO" "$ARTIFACTS_BRANCH"
+          git push -qf "$REMOTE" "$ARTIFACTS_BRANCH"
