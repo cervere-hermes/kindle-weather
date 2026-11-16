@@ -1,0 +1,35 @@
+name: render
+on:
+  schedule:
+    - cron: "7,37 * * * *"   # twice an hour (GitHub may run a few minutes late)
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency: render
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Render dashboard
+        run: node src/render.mjs
+      - name: Convert to 8-bit grayscale for e-ink
+        run: |
+          for f in dist/weather-*.png; do
+            if command -v magick >/dev/null; then magick "$f" -colorspace Gray -depth 8 "$f";
+            elif command -v convert >/dev/null; then convert "$f" -colorspace Gray -depth 8 "$f"; fi
+          done
+      - name: Publish to the images branch
+        run: |
+          mkdir out && cp dist/weather-*.png dist/model.json out/
+          cd out
+          git init -q -b images
+          git config user.name "weatherboard-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add . && git commit -qm "render $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" images

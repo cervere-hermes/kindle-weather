@@ -1,0 +1,8 @@
+{
+  "name": "Amsterdam",
+  "latitude": 52.3676,
+  "longitude": 4.9041,
+  "timezone": "Europe/Amsterdam",
+  "switchToTomorrowAt": 19,
+  "sizes": [[1072, 1448], [600, 800], [758, 1024], [1236, 1648]]
+}
