@@ -38,12 +38,8 @@ exit_to_kindle() {
   exit 0
 }
 
-first=1
 while true; do
   refresh
-  # first draw only: say how to leave (later refreshes are clean)
-  [ "$first" = 1 ] && $FBINK -q -m -y -1 "Tap the screen to go back to your Kindle" 2>/dev/null
-  first=0
   sleep 2   # ignore the tap that launched us
   wait_or_touch $((REFRESH_MIN * 60)) && exit_to_kindle
 done
